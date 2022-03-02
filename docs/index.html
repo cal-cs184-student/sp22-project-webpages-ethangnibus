@@ -1,449 +1,575 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-<style>
-  body {
-    padding: 100px;
-    width: 1000px;
-    margin: auto;
-    text-align: left;
-    font-weight: 300;
-    font-family: 'Open Sans', sans-serif;
-    color: #121212;
-  }
-  h1, h2, h3, h4 {
-    font-family: 'Source Sans Pro', sans-serif;
-  }
-</style>
 
-<title>CS 184 Rasterizer</title>
-<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+<head>
+  <style>
+    body {
+      padding: 100px;
+      width: 1000px;
+      margin: auto;
+      text-align: left;
+      font-weight: 300;
+      font-family: 'Open Sans', sans-serif;
+      color: #121212;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: 'Source Sans Pro', sans-serif;
+    }
+  </style>
+  <title>CS 184 Mesh Editor</title>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
 </head>
 
 
 <body>
 
-<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2022</h1>
-<h1 align="middle">Project 1: Rasterizer</h1>
-<h2 align="middle">Ethan Gnibus, CS184-ontariogothic</h2>
+  <h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2020</h1>
+  <h1 align="middle">Project 2: Mesh Editor</h1>
+  <h2 align="middle">Ethan Gnibus, CS184-gutter</h2>
 
-<br><br>
+  <br><br>
 
-<div>
+  <div>
 
-<h2 align="middle">Overview</h2>
-<p>
-  In this project I created a 2d rasterizer.
-  I started by learning how to draw a color to the screen. From there, I was able to draw triangles to the screen using line checks.
-  From there I optimized the process and implemented antialiasing to make the program smoother both aesthetically and functionally.
-  I did this by supersampling with 1, 4, 9, and 16 inner samples per pixel drawn to the screen.
-  I also implemented scaling, translation, and rotation transforms so that svgs could be manipulated.
-  I also learned how we could use baycentric coordinates to find the location of a point in a triangle in relation to the vertices of said triangle.
-  After this I was able to map textures to triangles in screen spaced based on their corresponding locations on the triangles in texture space.
-  Finally, I used a technique called level sampling to render textured triangles by sampling their textures at different resolutions based on their location in screen space.
-</p>
-
-<h2 align="middle">Section I: Rasterization</h2>
-
-<h3 align="middle">Part 1: Rasterizing single-color triangles</h3>
-
-<h4 >Walk through how you rasterize triangles in your own words.</h4>
-<p>
-  In this project we are told to implement a function that takes in the vertices of a triangle and draws that triangle to our screen.
-  We have two useful data structures that make doing this much easier.
-  The first is a sample buffer that allows us to take multiple samples per pixel
-  (if there are N samples per pixel and the frame buffer's size is M, then the sample buffer's size is NxM).
-  The second is a frame buffer that allows us to draw the pixel's color values to the screen in the rasterization pipeline.
-  The general workflow of rasterizing a triangle is coloring the sample buffer's pixels if they are within the triangle,
-  averaging the N samples in the sample buffer and filling the corresponding location in the frame buffer with that color,
-  then drawing the framebuffer to the screen.
-  <br></br>
-  To find if pixels are within the triangle, I use three line checks.
-  If we take a sample at point S and a triangle is made of vertices A, B, and C, then my line checks are the following:
-  <ul>
-    <li>If we look at line A-B, check if S and C are on the same side of the line or if S is on the line.</li>
-    <li>If we look at line B-C, check if S and A are on the same side of the line or if S is on the line.</li>
-    <li>If we look at line C-A, check if S and B are on the same side of the line or if S is on the line.</li>
-  </ul>
-</p>
-
-<h4>Explain how your algorithm is no worse than one that checks each sample within the bounding box of the triangle.</h4>
-<p>
-  Above I said the first part of rastering a triangle is coloring the sample buffer's pixels if they are within the triangle.
-  If we do not optimize this, we will have to iterate through every sample location every time we want to draw a triangle to the screen.
-  Luckily, we are given the vertices that make up the triangle we want to draw, so from those we could extract a bounding box around the triangle.
-  The folloing is how we find important features of the bounding box:
-
-  <ul>
-    <li>Bounding box top: Take the minimum of the y-values of the vertices of the triangle.</li>
-    <li>Bounding box bottom: Take the max of the y-values of the vertices of the triangle.</li>
-    <li>Bounding box left: Take the minimum of the x-values of the vertices of the triangle.</li>
-    <li>Bounding box right: Take the maximum of the x-values of the vertices of the triangle.</li>
-  </ul>
-
-</p>
-
-<h4 bold>Show a png screenshot of basic/test4.svg with the default viewing parameters and with the pixel inspector centered on an interesting part of the scene.</h4>
-<div align="middle">
-  <table style="width=100%">
-    <img src="images/test4.png" align="middle" width="500px"/>
-    <figcaption align="middle">Here I'm showing the top left corner of a blue star.</figcaption>
-  </table>
-</div>
-
-<h4>
-  Extra credit: Explain any special optimizations you did beyond simple bounding box triangle rasterization,
-  with a timing comparison table (we suggest using the c++ clock() function around the svg.draw() command in
-  DrawRend::redraw() to compare millisecond timings with your various optimizations off and on).
-</h4>
-<p>I loop unrolled. I didn't have time but I was going to use parallel programming to use different threads in the for loop where we sample.</p>
-
-
-
-
-
-<h3 align="middle">Part 2: Antialiasing triangles</h3>
-<h4>
-  Walk through your supersampling algorithm and data structures.
-  Why is supersampling useful? What modifications did you make to
-  the rasterization pipeline in the process? Explain how you used
-  supersampling to antialias your triangles.
-</h4>
-<p>
-  To supersample, I start by updating the size of the sample buffer proportionally to how many samples I take per pixel.
-  This way if the supersample rate is N I can fill the sample buffer with N colors, then average those N colors down
-  into one color when I resolve it to the frame buffer. With each buffer's abstraction in mind, this way pixel k in
-  the framebuffer corresponds to the average Color taken from samples (k*N) through (k*N)+(N-1).
-  Supersampling is super useful because it allows us mitigate some of the error that comes with taking one sample at each pixel location.
-  Instead, we can take multiple samples and average them to better represent the colors found in the bounding box of the pixel location.
-  For example, if the edge of a triangle cuts throught a pixel, using supersampling would allow us to
-  display a color that represents both sides of the triangle at the same time.
-  One modification I made to the rastering process was resising the sample
-  buffer to N x length(frame buffer) where N is the number of samples per pixel. Another modification was changing the direct translation
-  from sample buffer to frame buffer to a system that averages the colors from (k*N) through (k*N)+(N-1) then translating that averaged
-  color to the frame buffer. A third modification was adding the code to do the supersampling itself. I decided to calculate the midpoints
-  of the subgrids beforehand, then sample at the appropriate locations based on supersample rate. In my code this appears as a switch statement
-  over the supersample rate, with loop unrolled instructions to sample at the appropriate midpoint locations. Functionally, this enabled me to 
-  antialias my triangles by reducing some of the the error caused by high frequencies in the svg I'm sampling. This way, high frequency 
-  artifacts such as jaggies are mitigated and blurred so that the transitions between shapes and colors are more fluid.
-</p>
-
-<h4>
-  Show png screenshots of basic/test4.svg with the default viewing 
-  parameters and sample rates 1, 4, and 16 to compare them side-by-side.
-  Position the pixel inspector over an area that showcases the effect dramatically;
-  for example, a very skinny triangle corner. Explain why these results are observed.
-</h4>
-<p>Below are 4 images of the bottom right of the biggest blue star with different supersample rates.</p>
-<div align="middle">
-  <table style="width=100%">
-    <tr>
-      <td>
-        <img src="images/test4_1.png" align="middle" width="400px"/>
-        <figcaption align="middle">Supersample rate of 1.</figcaption>
-      </td>
-      <td>
-        <img src="images/test4_4.png" align="middle" width="400px"/>
-        <figcaption align="middle">Supersample rate of 4.</figcaption>
-      </td>
-    </tr>
-    <br>
-    <tr>
-      <td>
-        <img src="images/test4_9.png" align="middle" width="400px"/>
-        <figcaption align="middle">Supersample rate of 9.</figcaption>
-      </td>
-      <td>
-        <img src="images/test4_16.png" align="middle" width="400px"/>
-        <figcaption align="middle">Supersample rate of 16.</figcaption>
-      </td>
-    </tr>
-  </table>
-</div>
-<p>Evidentally, as the supersample rate goes up, the higher frequencies in the
-  output are filtered out and the transition between colors becomes more blurred.</p>
-
-<h4>
-  Extra credit: If you implemented alternative antialiasing methods,
-  describe them and include comparison pictures demonstrating the
-  difference between your method and grid-based supersampling.
-</h4>
-<p>n/a</p>
-
-
-
-<h3 align="middle">Part 3: Transforms</h3>
-<h4>
-  Create an updated version of svg/transforms/robot.svg with cubeman doing something more
-  interesting, like waving or running. Feel free to change his colors or proportions to suit
-  your creativity. Save your svg file as my_robot.svg in your docs/ directory and show a png
-  screenshot of your rendered drawing in your write-up. Explain what you were trying to do
-  with cubeman in words.
-</h4>
-
-<div align="middle">
-  <table style="width=100%">
-    <img src="images/my_robot.png" align="middle" width="500px"/>
-    <figcaption align="middle">Above is I bodybuilder cubeman flexing those muscles.</figcaption>
-  </table>
-</div>
-
-
-
-<h2 align="middle">Section II: Sampling</h2>
-
-<h3 align="middle">Part 4: Barycentric coordinates</h3>
-<h4>
-  Explain barycentric coordinates in your own words and use an image to aid you in your explanation.
-  One idea is to use a svg file that plots a single triangle with one red, one green, and one blue
-  vertex, which should produce a smoothly blended color triangle.
-</h4>
-<p>Barycentric coordinates define the location of a point relative to other points on an object, so that we can find the same location on an
-  object after it has been transformed. Below there is an example of finding the same point on a triangle after translating it.
-</p>
-<div align="middle">
-  <table style="width=100%">
-    <img src="images/bary.png" align="middle" width="500px"/>
-    <figcaption align="middle">Barycentric coordinate diagram</figcaption>
-  </table>
-</div>
-<p>
-  If we use the vertices and purple sample point on the left triangle to find
-  alpha, beta, and gamma, then we could use the right triangle's vertices, alpha, beta, and gamma to find
-  the right same purple point on the right triangle.
-</p>
-
-<h4>
-  Show a png screenshot of svg/basic/test7.svg with default viewing parameters and sample rate 1.
-  If you make any additional images with color gradients, include them.
-</h4>
-<div align="middle">
-  <table style="width=100%">
-    <img src="images/test7.png" align="middle" width="500px"/>
-    <figcaption align="middle">Above is test7.svg with default viewing parameters and sample rate 1.</figcaption>
-  </table>
-</div>
-
-
-<h3 align="middle">Part 5: "Pixel sampling" for texture mapping</h3>
-<h4>
-  Explain pixel sampling in your own words and describe how you implemented
-  it to perform texture mapping. Briefly discuss the two different pixel
-  sampling methods, nearest and bilinear.
-</h4>
-<p>
-  Pixel sampling is when we preform the computation described in the "Barycentric coordinate diagram" to find out how to texture our triangles.
-  In this case, the triange on the left is the triangle that we want to draw to the screen. We use the vertices of this triangle as well as the
-  point we want to sample to calculate alpha, beta, and gamma. Now that we have alpha, beta, and gamma, we can use them along with the texture
-  space triangle's vertices to find the sample point in texture space. Now that we have the coordinate of the sample point in texture space, we
-  can sample it to get the texture's color at the given point (even though the orientation of the triangle is different in screen space).
-  Textures have colors at discrete coordinates and samples can be taken at continuous points so we have to figure out how to color samples.
-  We call the colors at these discrete locations texels. The sampling methods I used that determine how to get the texture's color described below.
-  <br></br>
-  Nearest pixel sampling is when we sample a point using the methodology above, and determine it's color based on the closest
-  texel. This means that if we sample a point inbetween 4 different texels and draw a lines between the sample point and each texel, the color
-  we return will be the color of the texel with the shortest corresponding line.
-  <br></br>
-  Bilinear pixel interpolation is when we sample a point using the methodology above, and determine it's color based on a weighted combination of
-  all four surrounding texels. In this case, texels closer to the sample point will have more of a say in what color the sample returns than texels
-  further away from the sample point. The formula for bilinear pixel interpolation is (a * C1) + (b * C2) + (c * C3) + (d * C4).
-  Here C1, C2, C3, and C4 are colors corresponding to texels. Also a, b, c, and d are scalars such that the value of the scalar is
-  proportional their corresponding color's texel's distance from the sample point and a + b + c + d = 1.
-</p>
-
-<h4>
-  Check out the svg files in the svg/texmap/ directory. Use the pixel inspector
-  to find a good example of where bilinear sampling clearly defeats nearest sampling.
-  Show and compare four png screenshots using nearest sampling at 1 sample per pixel,
-  nearest sampling at 16 samples per pixel, bilinear sampling at 1 sample per pixel,
-  and bilinear sampling at 16 samples per pixel.
-</h4>
-<p>Below I will deep dive svg/texmap/test2.svg to show the differences between nearest sampling and bilinear sampling.</p>
-<div align="middle">
-  <table style="width=100%">
-    <tr>
-      <p>First let's look at the differences when the supersample rate is 1.</p>
-      <td>
-        <img src="images/nearest_1.png" align="middle" width="400px"/>
-        <figcaption align="middle">Nearest sampling with supersample rate of 1.</figcaption>
-      </td>
-      <td>
-        <img src="images/bilinear_1.png" align="middle" width="400px"/>
-        <figcaption align="middle">Bilinear sampling with supersample rate of 1.</figcaption>
-      </td>
-      <p>
-        With nearest sampling it's evident that there are some high frequencies in the image that we need to filter out.
-        We can see that the latitude line is discontinuous, which makes the image hard to interpret. By using bilinear
-        sampling, we can filter out some of the higher frequencies and get a cleaner, more connected line even with no 
-        supersampling. Evidentally, bilinear clearly defeats nearest sampling when the supersample rate is low in this
-        situation.
-      </p>
-
-    </tr>
-    <br>
-    <tr>
-      <p>Next, let's look at the differences when the supersample rate is 16.</p>
-      <td>
-        <img src="images/nearest_16.png" align="middle" width="400px"/>
-        <figcaption align="middle">Nearest sampling with supersample rate of 16.</figcaption>
-      </td>
-      <td>
-        <img src="images/bilinear_16.png" align="middle" width="400px"/>
-        <figcaption align="middle">Bilinear sampling with supersample rate of 16.</figcaption>
-      </td>
-    </tr>
-    <p>
-      In this case, the pixel sampler for nearest sampling looks better than the pixel sampler for
-      bilinear sampling, but the bilinear sampling method looks better when you're looking at the entire
-      picture. The former is because bilinear sampling blurs adjacent pixels, so when you're looking up
-      close it will come out muddier. The latter is because the blur filters out dramatic change in the
-      image so we get longitude/latitude lines that fade into the rest of the image (bilinear) rather than jump
-      right into another color (nearest). In my opinion, bilinear still looks better for the case with the
-      supersample rate of 16.
+    <h2 align="middle">Overview</h2>
+    <p align="middle">
+      Give a high-level overview of what you implemented in this project. Think about what you've built as a whole.
+      Share your thoughts on what interesting things you've learned from completing the project.
     </p>
-  </table>
-</div>
-<h4>
-  Comment on the relative differences. Discuss when there will be a large
-  difference between the two methods and why.
-</h4>
-<p>
-  As detailed above, bilinear sampling looks better in cases where there are high frequencies in the thing being sampled.
-  We will see the largest differences between the methods when there is a huge jump in color within one pixel. In this case,
-  bilinear sampling will filter out some of the higher frequencies and blend colors together while nearest sampling will
-  show dramatic jumps in color (or jaggies). This is because the weighted sum of texels you use to do bilinear sampling will
-  mix colors in the same pixel when there are dramatic changes, which makes the image appear more smooth. Nearest sampling
-  fails to do so because it only chooses the closest texel to the sample point, which means the higher frequencies will
-  be preserved in the output image.
-</p>
+    <p>
+      In this project, I built some systems that are helpful to do geometric modelling in 2d and 3d. I implemented Bezier Curves,
+      Bezier Surfaces which help turn control points into smooth lines. I also updated a 3d mesh codebase to support smooth shading,
+      edge flips, edge splits, and loop subdivision to upsample the mesh. I really like Blender so I thought this project was really cool.
+    </p>
+
+    <h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
+
+    <h3 align="middle">Part 1: Bezier curves with 1D de Casteljau subdivision</h3>
+    <p align="middle">
+      Briefly explain de Casteljau's algorithm and how you implemented it in order to evaluate Bezier curves.
+    </p>
+    <p>
+      Casteljau's algorithm takes in a set of control points and outputs a smooth curve (Bezier curve) that can be manipulated by moving the control points.
+      I implemented this algorithm by recursively finding midpoints between pairs of control points. This ratio was defined as t, where t is in the range [0, 1].
+      I start with N control points. between each pair of control points, I find a new point that is at the position t would be if the first old point is 0
+      and the second old point is 1 (the new point is somewhere on the line between the old point and the new point, governed by t). I then repeat this
+      same process on these N-1 new points until I am left with a single point. This point represents the point "t" of the way through our final Bezier curve.
+      I draw this point to the screen. I then repreat this process with a dense number of "t's" so that I am left with a curve!
+
+    </p>
+    <p align="middle">
+      Take a look at the provided .bzc files and create your own Bezier curve with 6 control points of your choosing. Use this Bezier curve for your screenshots below.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <img src="images/bz6.png" align="middle" width="400px" />
+        <figcaption align="middle">We will apply de Casteljau's to the points above to get the green line above.</figcaption>
+      </table>
+    </div>
+  
+    <p align="middle">
+      Show screenshots of each step / level of the evaluation from the original control points down to the final evaluated point. Press E to step through. Toggle C to show the completed Bezier curve as well.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/bz6.png" align="middle" width="400px" />
+            <figcaption align="middle">Zero iterations.</figcaption>
+          </td>
+          <td>
+            <img src="images/bz5.png" align="middle" width="400px" />
+            <figcaption align="middle">One iteration.</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/bz4.png" align="middle" width="400px" />
+            <figcaption align="middle">Two iterations.</figcaption>
+          </td>
+          <td>
+            <img src="images/bz3.png" align="middle" width="400px" />
+            <figcaption align="middle">Three iterations.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/bz2.png" align="middle" width="400px" />
+            <figcaption align="middle">Four Iterations.</figcaption>
+          </td>
+          <td>
+            <img src="images/bz1.png" align="middle" width="400px" />
+            <figcaption align="middle">Five iterations.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p align="middle">
+      Show a screenshot of a slightly different Bezier curve by moving the original control points around and modifying the parameter tt via mouse scrolling.
+    </p>
+    <p>
+      Below I will show a series of pictures of the same curve evaluated at different values of t.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/bzA.png" align="middle" width="400px" />
+            <figcaption align="middle">t at 0.</figcaption>
+          </td>
+          <td>
+            <img src="images/bzB.png" align="middle" width="400px" />
+            <figcaption align="middle">t around 0.3.</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/bzC.png" align="middle" width="400px" />
+            <figcaption align="middle">t around 0.7.</figcaption>
+          </td>
+          <td>
+            <img src="images/bzD.png" align="middle" width="400px" />
+            <figcaption align="middle">t close to 1.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <h3 align="middle">Part 2: Bezier surfaces with separable 1D de Casteljau subdivision</h3>
+    <p align="middle">
+      Briefly explain how de Casteljau algorithm extends to Bezier surfaces and how you implemented it in order to evaluate Bezier surfaces.
+    </p>
+    <p>
+      Above we just showed why de Casteljau's is useful to represent 2d Bezier curves. We could represent 3d Bezier surfaces
+      by applying de Casteljau's to "patches" of points. To do this we break up our patch of points into its rows, and apply
+      de Casteljau to each individual row until we get the point specifiec at (u,v). To do this, we have the function
+      BezierPatch::evaluate(...). In evalueate, we iterate through the rows of our patch and use BezierPatch::evaluate1D(...)
+      specified at u to get back a list of control points at u. We then use BezierPatch::evaluate1D(...) specified at v to
+      get the point at v that lies on the line of control points specified at u. BezierPatch::evaluate1D(...) repeatedly
+      applies de Casteljau using BezierPatch::evaluateStep(...) until we get one point back. BezierPatch::evaluateStep(...)
+      calculates one step of de Casteljau just like in Part 1.
+    </p>
+    <p align="middle">
+      Show a screenshot of bez/teapot.bez (not .dae) evaluated by your implementation.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <img src="images/teapot_bez.png" align="middle" width="400px" />
+        <figcaption align="middle">The teapot above was construced by calculation Bezier Surfaces.</figcaption>
+      </table>
+    </div>
 
 
-<h3 align="middle">Part 6: "Level sampling" with mipmaps for texture mapping</h3>
-<h4>
-  Explain level sampling in your own words and describe how you implemented it for texture mapping.
-</h4>
-<p>
-  We notice the details on objects close to us easier than we notice the details on objects that are far away.
-  The same idea holds for an sampling technique called level sampling, where we decrease the resolution of textures
-  as we sample objects further and further from our perspective in screen space. The general idea of level sampling
-  is to filter out high frequencies in textures so that they are easy to interpret when they are objects that are far
-  away. We do this while preserving the detail on objects that are close to our perspective as follows. Calculate the
-  "level" (distance from our perspective) that a triangle is on and sample a texture with the corresponding resolution.
-  This means for every texture, we will have multiple "mipmaps" that hold different resolutions of that texture.
-  Triangles close to the screen will sample high resolution mipmaps and triangles further away from the screen will
-  sample lower resolution mipmaps. The result is diminishing details as objects get further away from the screen.
-  <br></br>
-  To implement this, I calculated difference vectors for the x and y positions of an triangle from our perspective in screen space,
-  scaled them based on the dimensions of our buffers, used a formula to find how much the triangle is warped in screen space and
-  found the level accordingly, clamped the level based on the texture's dimensions, then used that level to retrieve a version of
-  the texture with appropriate resolution. Now that I have a texture, I can carry out with the "Pixel Sampling for texture mapping"
-  workflow above to raster the triangle with textures on it.
-</p>
+    <h2 align="middle">Section II: Sampling</h2>
 
-<h4>
-  You can now adjust your sampling technique by selecting pixel sampling,
-  level sampling, or the number of samples per pixel. Describe the tradeoffs
-  between speed, memory usage, and antialiasing power between the three various techniques.
-</h4>
-<p>
-  The pixel sampling methods we have are nearest and bilinear. Bilinear requires more computation because we need to access four
-  texel's colors and mix them before returning, while in nearest we only have to access one texel's color and return it. However,
-  the computation cost of using bilinear sampling seems generally worth it because it antialiases out high frequencies that make
-  images look smoother. Bilinear is slightly slower and can use more memory, but is better for antialiasing.
-  <br></br>
-  Level sampling in comparison to no level sampling is an interesting case. Zero level sampling is the fastest, nearest level
-  sampling is the second fastest, and bilinear is the slowest. This is because nearest needs to do extra computation to find
-  the associated level before sampling. Likewise, bilinear needs to do the extra computation to find the two closest levels, sample them,
-  then interpolate between them. With nearest and bilinear level sampling, we need to store the same texture at multiple different
-  resolutions, which means that level sampling requires more memory use. However, the storage of mipmaps only takes 1/3 the memory of
-  storing the full resolution texture itself and can be used strategically to improve preformance. An example of this is in Spyro the Dragon,
-  where textures increase in resolution as you get closer to them. This allowed artists to create a beautiful atmosphere while abiding to
-  the PlayStation 1's strict architecture. As for antialiasing, bilinear is the best, nearest is okay, and zero doesn't antialias.
-</p>
-
-<h4>
-  Using a png file you find yourself, show us four versions of the image, using the combinations
-  of L_ZERO and P_NEAREST, L_ZERO and P_LINEAR, L_NEAREST and P_NEAREST, as well as L_NEAREST and P_LINEAR.
-
-  To use your own png, make a copy of one of the existing svg files in svg/texmap/
-  (or create your own modelled after one of the provided svg files).
-  Then, near the top of the file, change the texture filename to point to your own png.
-  From there, you can run ./draw and pass in that svg file to render it and then save a
-  screenshot of your results.
-
-  Note: Choose a png that showcases the different sampling effects well.
-  You may also want to zoom in/out, use the pixel inspector, etc.
-  to demonstrate the differences.
-
-</h4>
-<p>I'm going to use the following png to hilight different sampling effects</p>
-<div align="middle">
-  <table style="width=100%">
-    <img src="images/paint.png" align="middle" width="500px"/>
-    <figcaption align="middle">paint.png</figcaption>
-  </table>
-</div>
-<p>Here you can see the differences between the sampling methods:</p>
-<div align="middle">
-  <table style="width=100%">
-    <tr>
-      <td>
-        <img src="images/L_ZERO_P_NEAREST.png" align="middle" width="400px"/>
-        <figcaption align="middle">L_ZERO and P_NEAREST</figcaption>
-      </td>
-      <td>
-        <img src="images/L_ZERO_P_LINEAR.png" align="middle" width="400px"/>
-        <figcaption align="middle">L_ZERO and P_LINEAR</figcaption>
-      </td>
-    </tr>
-    <br>
-    <tr>
-      <td>
-        <img src="images/L_NEAREST_P_NEAREST.png" align="middle" width="400px"/>
-        <figcaption align="middle">L_NEAREST and P_NEAREST</figcaption>
-      </td>
-      <td>
-        <img src="images/L_NEAREST_P_LINEAR.png" align="middle" width="400px"/>
-        <figcaption align="middle">L_NEAREST and P_LINEAR</figcaption>
-      </td>
-    </tr>
-  </table>
-</div>
-<p>The easiest way to see the differences between each sampling method is by looking at the pixel inspector.
-  The pixel inspector was pointed at the top left of the image at the white ball where the paint streaks lead to.
-  <br></br>
-  L_ZERO and P_NEAREST is bad at antialiasing. It fails to filter out high frequencies that result in making the image
-  seem blocky. Notice the dark blue on the left of the white blue in the pixel inspector. This shows that this method
-  leaves in the high frequency color changes that we aim to eliminate. Additionally, this method fails to antialias based
-  on the distance from our perspective. Notice how the black and grey lines on the left of the pixel inspector do not blend.
-
-  <br></br>
-  L_ZERO and P_LINEAR antialiases better. It makes the transition to dark blue as described above a bit more bearable
-  and therefore accounts for high frequencies more than no antialiasing. Additionally, this method fails to antialias based
-  on the distance from our perspective. Notice how the black and grey lines on the left of the pixel inspector do not blend.
-  <br></br>
-  L_NEAREST and P_NEAREST is great at antialiasing. Its transition from light blue to dark blue is more smooth, but there are
-  still some sharp dark blue pixels that feel out of place. The transition from grey to black on the left is smooth and shows
-  us that perspective antialiasing is present.
-  <br></br>
-  L_NEAREST and P_LINEAR is the best at antialiasing. The dark blue high frequencies are completely mitigated and the grey
-  fades into black very nicely.
-</p>
-
-<h4>
-  Extra credit: If you implemented any extra filtering methods, describe them and show comparisons between your results with the other above methods.
-</h4>
-<p>n/a</p>
+    <h3 align="middle">Part 3: Average normals for half-edge meshes</h3>
+    <p align="middle">
+      Briefly explain how you implemented the area-weighted vertex normals.
+    </p>
+    <p>
+      To calculate area-weighted vertex normals, I found a triangle's three vertices using the mesh datastructures. Then I used
+      their positions to get two vectors that I could use to find the area of the triangle. I used sqrt(x^2 + y^2 + z^2) to find
+      the area, then multiplied the area by the cross product of the the two vectors to get a perpendicular vector. I then
+      took the norm of the perpendicular vector and did this to every triangle that the provided vertex is a part of. I then took the
+      average of all these perpendicular vectors to get the average normal.
+    </p>
+    <p align="middle">
+      Show screenshots of dae/teapot.dae (not .bez) comparing teapot shading with and without vertex normals.
+      Use Q to toggle default flat shading and Phong shading.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/teapot_dae_flat.png" align="middle" width="400px" />
+            <figcaption align="middle">Flat shading with vertex normals.</figcaption>
+          </td>
+          <td>
+            <img src="images/teapot_dae__phong.png" align="middle" width="400px" />
+            <figcaption align="middle">Flat shading with vertex normals.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/teapot_dae_flat_white.png" align="middle" width="400px" />
+            <figcaption align="middle">Flat shading with white shader.</figcaption>
+          </td>
+          <td>
+            <img src="images/teapot_dae_phong_white.png" align="middle" width="400px" />
+            <figcaption align="middle">Phong shading with white shader.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/teapot_dae_flat_brown.png" align="middle" width="400px" />
+            <figcaption align="middle">Flat shading with brown shader.</figcaption>
+          </td>
+          <td>
+            <img src="images/teapot_dae_phong_brown.png" align="middle" width="400px" />
+            <figcaption align="middle">Phong shading with brown shader.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
 
 
+    <h3 align="middle">Part 4: Half-edge flip</h3>
+    <p align="middle">
+      Briefly explain how you implemented the edge flip operation and describe any interesting implementation / debugging tricks you have used.
+    </p>
+    <p>
+      To implement edge flips, I loaded all vertices based on the left side of the image below using the mesh data structures. I then reassigned
+      pointers based on the right side of the image. I found visually flipping edges and looking how the triangles line up on the mesh useful for
+      debugging.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <img src="images/flipDiagram.png" align="middle" width="400px" />
+        <figcaption align="middle">This piazza post was useful.</figcaption>
+      </table>
+    </div>
+    <p align="middle">
+      Show screenshots of a mesh before and after some edge flips.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/flip1.png" align="middle" width="400px" />
+            <figcaption align="middle">Before first diagonal flip.</figcaption>
+          </td>
+          <td>
+            <img src="images/flip2.png" align="middle" width="400px" />
+            <figcaption align="middle">After first diagonal flip.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/flip3.png" align="middle" width="400px" />
+            <figcaption align="middle">After second diagonal flip.</figcaption>
+          </td>
+          <td>
+            <img src="images/flip4.png" align="middle" width="400px" />
+            <figcaption align="middle">After third diagonal flip.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/flip5.png" align="middle" width="400px" />
+            <figcaption align="middle">Before first horizontal flip.</figcaption>
+          </td>
+          <td>
+            <img src="images/flip6.png" align="middle" width="400px" />
+            <figcaption align="middle">After 2 consecutive horizontal flips.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/flip7.png" align="middle" width="400px" />
+            <figcaption align="middle">Before first vertical flip.</figcaption>
+          </td>
+          <td>
+            <img src="images/flip8.png" align="middle" width="400px" />
+            <figcaption align="middle">After first vertical flip.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p align="middle">
+      Write about your eventful debugging journey, if you have experienced one.
+    </p>
+    <p>
+      I had a really hard time figuring out why my program was stuck in an infinate loop. I spent hours on piazza and ended up finding out that I
+      declared everything as some variation of ______Iter& varibleName = ...; instead of ______Iter& varibleName = ...;. This meant that I was
+      resetting pointers wrong when I did things like v0->halfedge() = h4;. Removing all the &'s fixed my problem!
+    </p>
 
-<h2 align="middle">Section III: Art Competition</h2>
-<p>If you are not participating in the optional art competition, don't worry about this section!</p>
 
-<h3 align="middle">Part 7: Draw something interesting!</h3>
-<p>n/a</p>
+    <h3 align="middle">Part 5: Half-edge split</h3>
+    <p align="middle">
+      Briefly explain how you implemented the edge split operation and describe any interesting implementation / debugging tricks you have used.
+    </p>
+    <p>
+      I used the same methodology as edge flip, but I used the diagram below as the right side of the image.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <img src="images/splitDiagram.png" align="middle" width="400px" />
+        <figcaption align="middle">I drew this one myself!</figcaption>
+      </table>
+    </div>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/split1.png" align="middle" width="400px" />
+            <figcaption align="middle">Before first split.</figcaption>
+          </td>
+          <td>
+            <img src="images/split2.png" align="middle" width="400px" />
+            <figcaption align="middle">After first split.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/split3.png" align="middle" width="400px" />
+            <figcaption align="middle">After second split.</figcaption>
+          </td>
+          <td>
+            <img src="images/split4.png" align="middle" width="400px" />
+            <figcaption align="middle">Before third split.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/split5.png" align="middle" width="400px" />
+            <figcaption align="middle">After third split.</figcaption>
+          </td>
+          <td>
+            <img src="images/split6.png" align="middle" width="400px" />
+            <figcaption align="middle">Before horizontal split.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/split7.png" align="middle" width="400px" />
+            <figcaption align="middle">After horizontal split.</figcaption>
+          </td>
+          <td>
+            <img src="images/split8.png" align="middle" width="400px" />
+            <figcaption align="middle">After lots of splits.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p align="middle">
+      Show screenshots of a mesh before and after a combination of both edge splits and edge flips.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/fs1.png" align="middle" width="400px" />
+            <figcaption align="middle">Before first split.</figcaption>
+          </td>
+          <td>
+            <img src="images/fs2.png" align="middle" width="400px" />
+            <figcaption align="middle">After first split.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/fs3.png" align="middle" width="400px" />
+            <figcaption align="middle">After second split.</figcaption>
+          </td>
+          <td>
+            <img src="images/fs4.png" align="middle" width="400px" />
+            <figcaption align="middle">Before first flip.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/fs5.png" align="middle" width="400px" />
+            <figcaption align="middle">After third split.</figcaption>
+          </td>
+          <td>
+            <img src="images/fs6.png" align="middle" width="400px" />
+            <figcaption align="middle">After second flip.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/fs7.png" align="middle" width="400px" />
+            <figcaption align="middle">After fourth split.</figcaption>
+          </td>
+          <td>
+            <img src="images/fs8.png" align="middle" width="400px" />
+            <figcaption align="middle">After third flip.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p align="middle">
+      Write about your eventful debugging journey, if you have experienced one.
+    </p>
+    <p>
+      I actually ended up getting this problem first try. I think it's because I used the convention from the diagram I drew.
+    </p>
+    <p align="middle">
+      If you have implemented support for boundary edges, show screenshots of your implementation properly handling split operations on boundary edges.
+    </p>
+    <p>
+      I did not implement.
+    </p>
 
 
+
+    <h3 align="middle">Part 6: Loop subdivision for mesh upsampling</h3>
+    <p align="middle">
+      Briefly explain how you implemented the loop subdivision and describe any interesting implementation / debugging tricks you have used.
+    </p>
+    <p>
+      To implement loop subdivision, I iterated through all edges and set all edges and vertices's ->isNew field to false, calculated new vertex locations
+      based on proximal vertices, calculated updated old vertex locations using a different proximal equation, split edges and assingned the midpoint's new
+      location based on what I calculated, flipped new edges that aren't on a preexisting line, then updated the old vertex locations.
+    </p>
+
+    <p align="middle">
+      Take some notes, as well as some screenshots, of your observations on how meshes behave after loop subdivision.
+      What happens to sharp corners and edges? Can you reduce this effect by pre-splitting some edges?
+    </p>
+    <p>I observed that after subdivision with no pre-split, sharp corners and edges are rounded off. Differences in meshes
+      subdivided with and without a pre-split can be seen below.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/sc1.png" align="middle" width="400px" />
+            <figcaption align="middle">Before subdividing with no pre-split around the spout.</figcaption>
+          </td>
+          <td>
+            <img src="images/sc2.png" align="middle" width="400px" />
+            <figcaption align="middle">After subdividing with no pre-split around the spout.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/sc3.png" align="middle" width="400px" />
+            <figcaption align="middle">Before subdividing with pre-split around the spout.</figcaption>
+          </td>
+          <td>
+            <img src="images/sc4.png" align="middle" width="400px" />
+            <figcaption align="middle">After subdividing with pre-split around the spout.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p>
+      As we can see, in areas I pre-split, some more of the high frequency change is preserved. I CAN reduce this effect by presplitting.
+      The subdivided mesh with pre-splitting looks far closer to the original mesh than the subdivided mesh with no pre-splitting.
+      This seemed to happend with both sharp corners and edges in my research.
+    </p>
+
+    <p align="middle">
+      Load dae/cube.dae. Perform several iterations of loop subdivision on the cube.
+      Notice that the cube becomes slightly asymmetric after repeated subdivisions.
+      Can you pre-process the cube with edge flips and splits so that the cube subdivides symmetrically?
+      Document these effects and explain why they occur. Also explain how your pre-processing helps alleviate the effects.
+    </p>
+    <p>
+      With our algorithm for subdivision, we find new vertex positions based on old vertex positions and move old vertex positions
+      based on the positions of adjacent vertices. A mesh with low numbers of vertices will lose lots of information about where vertices
+      originally are as the update and will dramatically change as seen below.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/cube1.png" align="middle" width="400px" />
+            <figcaption align="middle">No Subdivision.</figcaption>
+          </td>
+          <td>
+            <img src="images/cube2.png" align="middle" width="400px" />
+            <figcaption align="middle">Subdivision 1.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/cube3.png" align="middle" width="400px" />
+            <figcaption align="middle">Subdivision 2.</figcaption>
+          </td>
+          <td>
+            <img src="images/cube4.png" align="middle" width="400px" />
+            <figcaption align="middle">Subdivision 3.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/cube5.png" align="middle" width="400px" />
+            <figcaption align="middle">Subdivision 4.</figcaption>
+          </td>
+          <td>
+            <img src="images/cube6.png" align="middle" width="400px" />
+            <figcaption align="middle">Subdivision 5.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p>
+      To mitigate this, we will repetitively split so neighboring vertices update on adjacent vertices that are closer together. This will
+      mitigate a good amount of the subdivision rounding as seen below.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/c1.png" align="middle" width="400px" />
+            <figcaption align="middle">No Subdivision.</figcaption>
+          </td>
+          <td>
+            <img src="images/c2.png" align="middle" width="400px" />
+            <figcaption align="middle">Subdivision 1.</figcaption>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <img src="images/c3.png" align="middle" width="400px" />
+            <figcaption align="middle">Subdivision 2.</figcaption>
+          </td>
+          <td>
+            <img src="images/c4.png" align="middle" width="400px" />
+            <figcaption align="middle">Subdivision 3.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p>
+      As we could see, the cube's shape is retained much better. It would look even better if I split edges in a uniform way!
+    </p>
+
+    <p align="middle">
+      If you have implemented any extra credit extensions, explain what you did and document how they work with screenshots.
+    </p>
+    <p>
+      I did not.
+    </p>
+
+
+    <h2 align="middle">Section III: Optional Extra Credit</h2>
+
+    <h3 align="middle">Part 7: Design your own mesh!</h3>
+    <p align="middle">
+      Save your best polygon mesh as partsevenmodel.dae in your docs folder and show us a screenshot of the mesh in your write-up.
+    </p>
+    <p>
+      Not doing.
+    </p>
+    <p align="middle">
+      Include a series of screenshots showing your original mesh and your mesh after one and two rounds of subdivision.
+      If you have used custom shaders, include screenshots of your mesh with those shaders applied as well.
+    </p>
+    <p>
+      Not doing.
+    </p>
+    <p align="middle">
+      Describe what you have done to enhance your mesh beyond the simple humanoid mesh described in the tutorial.
+    </p>
+    <p>
+      Not doing.
+    </p>
+
+    <p>https://cal-cs184-student.github.io/sp22-project-webpages-ethangnibus/</p>
 </body>
+
 </html>
