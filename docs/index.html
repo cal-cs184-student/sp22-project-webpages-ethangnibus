@@ -1,257 +1,826 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
-<style>  
-    div.padded {  
-      padding-top: 0px;  
-      padding-right: 100px;  
-      padding-bottom: 0.25in;  
-      padding-left: 100px;  
-    }  
-  </style> 
-<title>Ethan Gnibus  |  CS 184</title>
+<style>
+  body {
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Open Sans', sans-serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+</style>
+<title>CS 184 Mesh Editor</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rel="stylesheet" type="text/css" href="style.css" media="screen" />
+<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
 </head>
+
+
 <body>
-<br />
-<h1 align="middle">Assignment 3: PathTracer</h1>
-    <h2 align="middle">Ethan Gnibus</h2>
 
-    <div class="padded">
-       
+<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2022</h1>
+<h1 align="middle">Project 4: Cloth Simulator</h1>
+<h2 align="middle">Ethan Gnibus, CS184-antartica</h2>
+
+<br><br>
+
+<div>
+
+<h2 align="middle">Overview</h2>
+<h4>
+  Give a high-level overview of what you implemented in this project.
+  Think about what you've built as a whole. Share your thoughts on what
+  interesting things you've learned from completing the project.
+</h4>
+<p>
+  In this project, I implemented cloth simulation by following the PointMass and Spring method.
+  This required building the PointMass-Spring grid itself, applying various forces to said PointMasses
+  to simulate things like gravity, colliding the cloth with primitives such as spheres and planes,
+  and colliding the cloth with itself. I also implemented GLSL Shaders that run in parallel on the GPU so that my simulation could
+  look pretty without taking hours to render!
+</p>
+
+<h2 align="middle">Part 1: Masses and springs</h2>
+  <h4>Describe what you did in Part 1. etc...</h4>
+  <p>
+    In Part 1, I wrote the code that represents a grid of masses and springs.
+    To do this I first made num_width_points x num_height_points PointMasses, 
+    oriented horizontally or vertically them based on the orientation variable, 
+    then emplaced them to the back of the point_masses vector. Next, for every
+    PointMass in the point_masses vector, I created it's structural, shearing,
+    and bending springs and added them to the springs vector if they should exist.
+  </p>
+
+  <h4>
+    Take some screenshots of scene/pinned2.json from a viewing angle
+    where you can clearly see the cloth wireframe to show the structure
+    of your point masses and springs.  
+  </h4>
+  <div align="center">
+      <table style="width=100%">
+          <tr>
+              <td align="middle">
+              <img src="images/pinned2/1.png" width="480px" />
+              <figcaption align="middle">Bird's eye view of pinned2.</figcaption>
+              <td align="middle">
+                  <img src="images/pinned2/2.png" width="480px" />
+                  <figcaption align="middle">pinned2 viewed from an angle.</figcaption>
+          </tr>
+          <tr>
+              <td align="middle">
+              <img src="images/pinned2/zoomed.png" width="480px" />
+              <figcaption align="middle">Zoomed in shot of pinned2.</figcaption>
+              <td align="middle">
+                  <img src="images/pinned2/structural.png" width="480px" />
+                  <figcaption align="middle">pinned2 with only structural springs.</figcaption>
+          </tr>
+          <tr>
+              <td align="middle">
+              <img src="images/pinned2/shearing.png" width="480px" />
+              <figcaption align="middle">pinned2 with only shearing springs.</figcaption>
+              <td align="middle">
+                  <img src="images/pinned2/bending.png" width="480px" />
+                  <figcaption align="middle">pinned2 with only bending springs.</figcaption>
+          </tr>
+      </table>
+  </div>
+
+<h4>
+  Show us what the wireframe looks like (1) without any shearing
+  constraints, (2) with only shearing constraints, and (3)
+  with all constraints.
+</h4>
+<div align="center">
+  <table style="width=100%">
+      <tr>
+          <td align="middle">
+          <img src="images/pinned2/without_shearing.png" width="480px" />
+          <figcaption align="middle">(1) without any shearing constraints.</figcaption>
+          <td align="middle">
+              <img src="images/pinned2/only_shearing.png" width="480px" />
+              <figcaption align="middle">(2) with only shearing constraints.</figcaption>
+      </tr>
       
-        <p>
-            In this project, I extended last projects bare bones raytracer to support glass materials,
-            mirror materials, and to simulate a thin camera lens that could be used to support depth of field.
-            This entailed implementing a reflect function, the sample_f() method for a MirrorBDSF class,
-            refraction, the sample_f() for a GlassBDSF class, creating a thin lens using geometry, and generating
-            rays for the thin lens for pixel sampling.
-        </p>
-
-    <h2 align="middle">Part 1: Mirror and Glass Materials    </h2>
-        <h4>Describe what you did in Part 1. etc...</h4>
-        <p>
-            In Part 1, I made a reflect equation for BSDFs, implemented sample_f for 
-            MirrorBSDFs that uses the reflect equation, made a refraction function for BSDFs,
-            sample_f for RefractionBSDFs that uses the refraction equation, and a sample_f
-            function for GlassBSDFs that uses both the reflection and the refraction.
-        </p>
-        <br>
-
-        <h4>
-            Show a sequence of six images of scene
-            CBspheres.dae rendered with
-            max_ray_depth set to 0, 1, 2, 3, 4, 5,
-            and 100. The other settings
-            should be at least 64 samples per pixel
-            and 4 samples per light.
-        </h4>
-        <p>I rendered the following with 128 samples per pixel and 4 samples per light.</p>
-        <div align="center">
-            <table style="width=100%">
-                <tr>
-                    <td align="middle">
-                    <img src="images/ray/r0.png" width="480px" />
-                    <figcaption align="middle">Ray depth of 0.</figcaption>
-                    <td align="middle">
-                        <img src="images/ray/r1.png" width="480px" />
-                        <figcaption align="middle">Ray depth of 1.</figcaption>
-                </tr>
-                <tr>
-                    <td align="middle">
-                    <img src="images/ray/r2.png" width="480px" />
-                    <figcaption align="middle">Ray depth of 2.</figcaption>
-                    <td align="middle">
-                        <img src="images/ray/r3.png" width="480px" />
-                        <figcaption align="middle">Ray depth of 3.</figcaption>
-                </tr>
-                <tr>
-                    <td align="middle">
-                    <img src="images/ray/r4.png" width="480px" />
-                    <figcaption align="middle">Ray depth of 4.</figcaption>
-                    <td align="middle">
-                        <img src="images/ray/r5.png" width="480px" />
-                        <figcaption align="middle">Ray depth of 5.</figcaption>
-                </tr>
-                <td align="middle">
-                    <img src="images/ray/r100.png" width="480px" />
-                    <figcaption align="middle">Ray depth of 100.</figcaption>
-            </table>
-        </div>
-        <p>
-            As we can see, as the ray depth increases the quality of reflections and refractions increases
-            (especially when a ray bounces off multiple objects that reflect or refract).
-        </p>
-        <br>
-
-        <h4>Point out the new multibounce effects that appear in each image.</h4>
-        <p>
-            At ray depth of 0, no light falls on the scene but we get direct lighting from the light.
-            At ray depth of 1, direct light falls onto the scene. We see the light's reflection on the
-            spheres but otherwise the spheres don't reflect anything else from the scene. Additionally,
-            no light bounces to illuminate the ceiling because there is only one bounce.
-            At ray depth of 2, we can see relfections on both spheres, but no refraction. We also can
-            see that there is global illumination and that the ceiling is illuminated.
-            At ray depth of 3, we can see both refraction and relflection. However, we can only see
-            reflection in the glass sphere viewed from the mirror sphere.
-            At ray depth of 4, we can see both reflection and refraction in the glass sphere viewed from
-            the mirror sphere.
-            At ray depth of 5 global illumination improves.
-            At ray depth of 100, global illumination improves greatly.
-        </pp>
-        <br>
-
-        <h4>Explain how these bounce numbers relate to the particular effects that appear.</h4>
-        <p>
-            At ray depth of 0, no light shows up other than the source because we can't bounce a Ray
-            off of any part of the scene.
-            At ray depth 1, we only see direct light and only the reflection of light shows up because
-            we can bounce 1 light ray. Since it takes 1 depth to render direct lighting in the scene, it will
-            take 1 more bounce to render direct lighting in reflections.
-            At ray depth of 2, we can that this is why the reflections only show direct illumination even though
-            the scene is globally illuminated.  We can also note that the glass 
-            sphere when viewed from the mirror sphere is at zero bounce lighting now.
-            Since the glass sphere when viewed from the mirror sphere should progress one step, we notice that it
-            is now at direct lighting and reflects. This occurs because objects n bounces away from the scene's
-            ray depth will reflect the scene's global illumination n steps later.
-            We could also notice that a ray depth of 3 means that we get refraction as well as reflection in the glass.
-            This occurs because refraction requires two bounces while reflection only requires one.
-            This logic holds when we are able to notice refraction in the glass sphere when viewed from the mirror sphere 
-            at ray depth of 4. This pattern will recurse and recurse as ray depth increases. The upgraded quality of global
-            illumination is because we have more bounces so pixels are more likely to converge.
-        </pp>
-        <br>
-    
-    <h2 align="middle">Part 4: Depth of Field</h2>
-        <h4>Describe what you did in Part 4. etc...</h4>
-        <p>
-            In Part 4 I upgraded project 3-1's camera into one that can support thin-lens simulation.
-            This enabled my raytracer to focus on specific parts of the scene based on depth. A user
-            could make the radius of the lens larger to make the image more blurry and adjust the
-            depth of the focal point to focus on a certian spot.
-        </p>
-        <br>
-
-        <h4>
-            In a few sentences, explain the differences
-            between a pinhole camera model
-            and a thin-lens camera model.
-        </h4>
-        <p>
-            The main difference between a pinhole camera model and a thin-lens camera model
-            is that the pinhole camera model renders every pixel in perfect focus while a
-            thin-lens camera model simulates the finite aperatures that appear everywhere
-            in the real world from cameras to our eyes. The thin-lens camera model that
-            I implemented supports changing the focal distance and lens radius. This means
-            that our thin-lens camera model can change the distance that the camera will focus
-            on in the scene and how blurry the parts that aren't focused on are. If we set the
-            lens radius of the thin-lens model, we can also simulate the pinhole camera model!
-        </pp>
-        <br>
-
-        <h4>
-            Show a "focus stack" where you focus at 4
-            visibly different depths through a scene.
-        </h4>
-        <p>
-            Below I compare the differences between CBbunny.dae rendered with 256 samples per pixel,
-            16 light rays, 13 bounces, and an aperture size of 0.30 when I change the depth to focus on.
-        </p>
-        <div align="center">
-            <table style="width=100%">
-                <tr>
-                    <td align="middle">
-                    <img src="images/depth/d375.png" width="480px" />
-                    <figcaption align="middle">-d 3.75</figcaption>
-                    <td align="middle">
-                        <img src="images/depth/d400.png" width="480px" />
-                        <figcaption align="middle">-d 4.00</figcaption>
-                </tr>
-                <tr>
-                    <td align="middle">
-                    <img src="images/depth/d425.png" width="480px" />
-                    <figcaption align="middle">-d 4.25</figcaption>
-                    <td align="middle">
-                        <img src="images/depth/d450.png" width="480px" />
-                        <figcaption align="middle">-d 4.50</figcaption>
-                </tr>
-                <tr>
-                    <td align="middle">
-                    <img src="images/depth/d475.png" width="480px" />
-                    <figcaption align="middle">-d 4.75</figcaption>
-                    <td align="middle">
-                        <img src="images/depth/d500.png" width="480px" />
-                        <figcaption align="middle">-d 5.00</figcaption>
-                </tr>
-                <tr>
-                    <td align="middle">
-                    <img src="images/depth/d525.png" width="480px" />
-                    <figcaption align="middle">-d 5.25</figcaption>
-                    <td align="middle">
-                        <img src="images/depth/d550.png" width="480px" />
-                        <figcaption align="middle">-d 5.50</figcaption>
-                </tr>
-            </table>
-        </div>
-        <p>
-            Here we can see the focus depth flow over the CBbunny! Note how
-            the focus shifts from in front of the bunny at d values around
-            3.00, on the bunny at d values around 4.75, and behind the bunny
-            around 5.50.
-        </p>
-        <br>
-
-        <h4>
-            Show a sequence of 4 pictures with visibly
-            different aperture sizes,
-            all focused at the same point in a scene.
-        </h4>
-        <p>Below I compare the differences between CBbunny.dae rendered with 256 samples per pixel,
-            16 light rays, 13 bounces, and a depth of 4.56 when I change aperture sizes.
-        </p>
-        <div align="center">
-            <table style="width=100%">
-                <tr>
-                    <td align="middle">
-                    <img src="images/aperature/b0000.png" width="480px" />
-                    <figcaption align="middle">-b 0.00</figcaption>
-                    <td align="middle">
-                        <img src="images/aperature/b0050.png" width="480px" />
-                        <figcaption align="middle">-b 0.05</figcaption>
-                </tr>
-                <tr>
-                    <td align="middle">
-                    <img src="images/aperature/b0100.png" width="480px" />
-                    <figcaption align="middle">-b 0.10</figcaption>
-                    <td align="middle">
-                        <img src="images/aperature/b0250.png" width="480px" />
-                        <figcaption align="middle">-b 0.25</figcaption>
-                </tr>
-                <tr>
-                    <td align="middle">
-                    <img src="images/aperature/b0500.png" width="480px" />
-                    <figcaption align="middle">-b 0.50</figcaption>
-                    <td align="middle">
-                        <img src="images/aperature/b1000.png" width="480px" />
-                        <figcaption align="middle">-b 1.00</figcaption>
-                </tr>
-            </table>
-        </div>
-        <p>As we can see, the renders start as a pinhole model when b = 0.00,
-            then they get progressively more blurry as the value of b increases.
-            At around b = 0.10, we get a nice effect where the bunny is in focus
-            and the background is blurred. This value is dependent on the relative
-            position of the scene in comparison to the camera.
-        </p>
-        <br>
-
-
-    <p>The website for my writeup is https://cal-cs184-student.github.io/sp22-project-webpages-ethangnibus/</p>
+      <td align="middle">
+          <img src="images/pinned2/all_constraints.png" width="480px" />
+          <figcaption align="middle">(3) with all constraints.</figcaption>
+  </table>
 </div>
+
+
+
+<h2 align="middle">Part 2: Simulation via numerical integration</h2>
+  <h4>Describe what you did in Part 2. etc...</h4>
+  <p>
+    In Part 2 I simulated external and spring correction forces to
+    act on the PointMasses that make up our cloth. I then used Verlet integration
+    to find the new positions of the PointMasses after the forces are applied to
+    them. To better mimic real world behavior, I limited how far each spring
+    could stretch by constraining the distance each pair of connected PointMasses
+    could be apart from one another.
+  </p>
+
+  <h3>
+    Experiment with some the parameters in the simulation.
+    To do so, pause the simulation at the start with P, modify the
+    values of interest, and then resume by pressing P again.
+    You can also restart the simulation at any time from the
+    cloth's starting position by pressing R.
+  </h3>
+  <br>
+
+  <h4>
+    Describe the effects of changing the spring constant ks;
+    how does the cloth behave from start to rest with a very low ks? A high ks?
+  </h4>
+  <p>
+    With a low ks (less than 100) the cloth seems to vibrate
+    after swiftly falling to a resting position.
+    With a high ks (above 10000000) the cloth falls to a resting
+    position very rigidly. While in a resting position, it is much
+    less flexible than the sub 100 or 5000 counterparts. It seems
+    that the cloth goes from a simulating a free-flowing and light
+    material like netting to a dense and stiff material such as 
+    construction paper and beyond as ks goes from low values to high values.
+  </p>
+
+  <h4>
+    What about for density?
+  </h4>
+  <p>
+    A low density value like 1 seems to reflect a material that doesn't weigh much
+    like netting. It holds it's top edge at almost a straight line, which
+    means that there is not much weight pulling the material down between the pinned
+    PointMasses. On the other hand, a high density value such as 10000 visually looks
+    very heavy as if it could be simulating chainmail. The top edge sinks down about
+    an eighth of the way down the entire mesh! We can also notice that PointMasses jiggle
+    around unlike the low density case.
+    This tells us that there is lots of stress on the springs when there is high density.
+    We can conclude that as density goes from low to high, the material simulated goes
+    from one that doesn't weigh much to one that weighs a lot.
+  </p>
+
+  <h4>
+    What about for damping?
+  </h4>
+  <p>
+    In our simulation, low values of damping like 0 appear to accerate the cloth's movement
+    while higher values of damping like 1 appear to slow the cloth's movement down.
+    From lecture we know that this is a product of a flaw in our simulation approach, so 
+    we can discard that feature and look to the others. At low values of damping,
+    we can observe that the cloth swings about rather than falling to it's resting position.
+    It is wavy and jittery almost like a sheet drying in the wind. As the damping factor
+    increases, we can observe the cloth rest to a halt. Replaying the simulation
+    with a damping factor of 1 shows the cloth falling down to it's resting position
+    and immediately stopping. It appears that the damping factor controls how powerful
+    springs in our model are at constraining the movement of the PointMasses. Low values
+    of damping mean that springs have little control over the forces exerted on the cloth
+    other than holding the cloth together. As damping values rise, springs get better and better
+    at making PointMasses less affected by other forces.
+  </p>
+
+  <h4>
+    For each of the above, observe any noticeable differences
+    in the cloth compared to the default parameters and show
+    us some screenshots of those interesting differences and
+    describe when they occur.
+  </h4>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+          <td align="middle">
+          <img src="images/cool_observations/wiggly.png" width="480px" />
+          <figcaption align="middle">When ks = 1 N/m, the material simulated is wiggly like a waterbed.</figcaption>
+          <td align="middle">
+              <img src="images/cool_observations/heavy.png" width="480px" />
+              <figcaption align="middle">When ks = 100000 N/m, the material simulated is stiff like construction paper.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/cool_observations/light.png" width="480px" />
+            <figcaption align="middle">When density = 1 gm/cm^2, the material simulated is light like netting.</figcaption>
+            <td align="middle">
+                <img src="images/cool_observations/heavy.png" width="480px" />
+                <figcaption align="middle">When density = 99999 gm/cm^2, the material simulated is heavy like like chainmail but jittery as if it's under lots of stress.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/cool_observations/swing.png" width="480px" />
+            <figcaption align="middle">When damping = 0, the cloth swings rather than going to a resting position.</figcaption>
+            <td align="middle">
+            <img src="images/cool_observations/still.png" width="480px" />
+            <figcaption align="middle">When damping = 1, the cloth falls to its resting position and sits still almost immediately after it stops falling.</figcaption>
+        </tr>
+    </table>
+  </div>
+
+  <h4>
+    Show us a screenshot of your shaded cloth from scene/pinned4.json
+    in its final resting state! If you choose to use different
+    parameters than the default ones, please list them.
+  </h4>
+  <p>
+    Below I show shaded versions of scene/pinned4.json in it's final resting
+    state with default parameters.
+  </p>
+  <div align="center">
+    <img src="images/pinned4/wireframe.png" width="480px" />
+    <figcaption align="middle">Wireframe.</figcaption>
+    <td align="middle">
+    <table style="width=100%">
+        <tr>
+          <td align="middle">
+          <img src="images/pinned4/normal.png" width="480px" />
+          <figcaption align="middle">Normal Shading.</figcaption>
+          <td align="middle">
+              <img src="images/pinned4/diffuse.png" width="480px" />
+              <figcaption align="middle">Diffuse Shading.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/pinned4/phong.png" width="480px" />
+            <figcaption align="middle">Blinn-Phong Shading.</figcaption>
+            <td align="middle">
+                <img src="images/pinned4/texture.png" width="480px" />
+                <figcaption align="middle">Texture Shading.</figcaption>
+        </tr>
+        <tr>
+          <td align="middle">
+          <img src="images/pinned4/bump.png" width="480px" />
+          <figcaption align="middle">Bump Shading.</figcaption>
+          <td align="middle">
+          <img src="images/pinned4/displacement.png" width="480px" />
+          <figcaption align="middle">Displacement Shading.</figcaption>
+      </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/pinned4/mirror.png" width="480px" />
+            <figcaption align="middle">Mirror Shading.</figcaption>
+            <td align="middle">
+            <img src="images/pinned4/cell.png" width="480px" />
+            <figcaption align="middle">Custom Shading (Cell Shader).</figcaption>
+        </tr>
+    </table>
+  </div>
+
+
+
+<h2 align="middle">Part 3: Handling collisions with other objects</h2>
+  <h4>Describe what you did in Part 3. etc...</h4>
+  <p>
+    In Part 3, I added collision to my cloth simulation. First, I added collision with
+    spheres by bumping a PointMass a little above the sphere if it ever crosses over the
+    sphere's surface or rests on the surface. I also implemented collisions with planes by doing the same if it
+    a PointMass crosses from one side of the plane's surface or rests on the surface. Both
+    of these involved finding the intersection point, finding an offset point a little on
+    the outside of the object's intersection point, and applying a correction vector scaled
+    by friction to correct the every PointMass's position that intersects.
+  </p>
+
+  <h4>
+    Show us screenshots of your shaded cloth from
+    scene/sphere.json in its final resting state on the
+    sphere using the default ks = 5000 as well as with
+    ks = 500 and ks = 50000. Describe the differences in the results.
+  </h4>
+  <p>I simulated the following with Blinn-Phong Shading.</p>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/ks/50.png" width="480px" />
+            <figcaption align="middle">ks = 50.</figcaption>
+            <td align="middle">
+                <img src="images/ks/500.png" width="480px" />
+                <figcaption align="middle">ks = 500.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/ks/5000.png" width="480px" />
+            <figcaption align="middle">ks = 5000.</figcaption>
+            <td align="middle">
+            <img src="images/ks/50000.png" width="480px" />
+            <figcaption align="middle">ks = 50000.</figcaption>
+        </tr>
+    </table>
+  </div>
+  <p>
+    As ks goes from a low value to a high value, the cloth
+    seems to go from simulating a thin material to simulating
+    a thick material. At lower values, more folds appear and
+    the cloth falls into place more swiftly. At higher values,
+    less folds appear and the cloth slowly pulls itself into place.
+    When ks = 50, the cloth looks like it is
+    simulating a bandana. When ks = 500 the cloth looks like it
+    is simulating a tablecloth. When ks = 5000, the cloth looks
+    like it is simulating a towel. When ks = 50000, the cloth
+    looks like it is simulating a sheet of rubber.
+  </p>
+
+  <h4>
+    Show us a screenshot of your shaded cloth lying peacefully at
+    rest on the plane. If you haven't by now, feel free to express
+    your colorful creativity with the cloth! (You will need to complete
+    the shaders portion first to show custom colors.)
+  </h4>
+  <div align="center">
+    <img src="images/plane/wireframe.png" width="480px" />
+    <figcaption align="middle">Wireframe.</figcaption>
+    <td align="middle">
+    <table style="width=100%">
+        <tr>
+          <td align="middle">
+          <img src="images/plane/normal.png" width="480px" />
+          <figcaption align="middle">Normal Shading.</figcaption>
+          <td align="middle">
+              <img src="images/plane/diffuse.png" width="480px" />
+              <figcaption align="middle">Diffuse Shading.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/plane/phong.png" width="480px" />
+            <figcaption align="middle">Blinn-Phong Shading.</figcaption>
+            <td align="middle">
+                <img src="images/plane/texture.png" width="480px" />
+                <figcaption align="middle">Texture Shading.</figcaption>
+        </tr>
+        <tr>
+          <td align="middle">
+          <img src="images/plane/bump.png" width="480px" />
+          <figcaption align="middle">Bump Shading.</figcaption>
+          <td align="middle">
+          <img src="images/plane/displacement.png" width="480px" />
+          <figcaption align="middle">Displacement Shading.</figcaption>
+      </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/plane/mirror.png" width="480px" />
+            <figcaption align="middle">Mirror Shading.</figcaption>
+            <td align="middle">
+            <img src="images/plane/cell.png" width="480px" />
+            <figcaption align="middle">Custom Shading (Cell Shader).</figcaption>
+        </tr>
+    </table>
+  </div>
+  <p>
+    Displacement shading looks weird because the displaced plane vectors clip into the mesh's vertices or vice versa.
+    Cell shading (my extra credit shader) looks weird because the light hitting the flat plane
+    and the flat cloth fall into the same bucket.
+  </p>
+
+
+
+<h2 align="middle">Part 4: Handling self-collisions</h2>
+  <h4>Describe what you did in Part 4. etc...</h4>
+  <p>
+    In Part 4 I created and accelerated collisions between the cloth and itself.
+    To do this, I assigned PointMasses hashes based on their position in the scene
+    so that PointMasses with the same hash are in the same partition of the scene space.
+    Then I used this hash to put PointMasses that are close in proximity into the same
+    bin in a spatial map. Then I loop through all PointMasses, see if the current PointMass
+    collides with any other PointMass in it's spatial map bin, and apply a correcting
+    force to it if it does collide.
+  </p>
+
+  <h4>
+    Show us at least 3 screenshots that document how your
+    cloth falls and folds on itself, starting with an early,
+    initial self-collision and ending with the cloth at a more
+    restful state (even if it is still slightly bouncy on the ground).
+
+  </h4>
+  <p>The following images were simulated using normal shading.</p>
+  <div align="center">
+    
+    <table style="width=100%">
+        <tr>
+          <td align="middle">
+          <img src="images/self_collision/1.png" width="480px" />
+          <figcaption align="middle">Step 1.</figcaption>
+          <td align="middle">
+              <img src="images/self_collision/2.png" width="480px" />
+              <figcaption align="middle">Step 2.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/self_collision/3.png" width="480px" />
+            <figcaption align="middle">Step 3.</figcaption>
+            <td align="middle">
+                <img src="images/self_collision/4.png" width="480px" />
+                <figcaption align="middle">Step 4.</figcaption>
+        </tr>
+        <tr>
+          <td align="middle">
+          <img src="images/self_collision/5.png" width="480px" />
+          <figcaption align="middle">Step 5.</figcaption>
+          <td align="middle">
+          <img src="images/self_collision/6.png" width="480px" />
+          <figcaption align="middle">Step 6.</figcaption>
+      </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/self_collision/7.png" width="480px" />
+            <figcaption align="middle">Step 7.</figcaption>
+            <td align="middle">
+            <img src="images/self_collision/8.png" width="480px" />
+            <figcaption align="middle">Step 8.</figcaption>
+        </tr>
+    </table>
+  </div>
+  <p>
+    As observed, the cloth folds over itself nicely.
+  </p>
+
+  <h4>
+    Vary the density as well as ks and describe with words
+    and screenshots how they affect the behavior of the
+    cloth as it falls on itself.
+  </h4>
+  <p align="middle">Below I will describe self collisions with low density (1 g/cm^2) using normal shading.</p>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/density_ks/low_density1.png" width="480px" />
+            <figcaption align="middle">Low density causes the cloth to fall in a way that makes big ripples.</figcaption>
+            <td align="middle">
+                <img src="images/density_ks/low_density2.png" width="480px" />
+                <figcaption align="middle">It folds back an forth over itself like lasagna.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/density_ks/low_density3.png" width="480px" />
+            <figcaption align="middle">When it falls it is relatively still and moves smoothly.</figcaption>
+            <td align="middle">
+                <img src="images/density_ks/low_density4.png" width="480px" />
+                <figcaption align="middle">It rests in a sleek, smooth way like a wet paper towel.</figcaption>
+        </tr>
+    </table>
+  </div>
+  <br>
+  <p align="middle">Below I will describe self collisions with high density (99999 g/cm^2) using normal shading.</p>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/density_ks/high_density1.png" width="480px" />
+            <figcaption align="middle">High density causes the cloth to crash on itself and make a bunch of tiny folds.</figcaption>
+            <td align="middle">
+                <img src="images/density_ks/high_density2.png" width="480px" />
+                <figcaption align="middle">It clumps up like dropping chainmail.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/density_ks/high_density3.png" width="480px" />
+            <figcaption align="middle">When it falls it lays to rest in a big pile.</figcaption>
+            <td align="middle">
+                <img src="images/density_ks/high_density4.png" width="480px" />
+                <figcaption align="middle">It eventually spreads out more, but has tiny ripples that are tight-knit.</figcaption>
+        </tr>
+    </table>
+  </div>
+  <br>
+  <p align="middle">Below I will describe self collisions with ks = 1 using normal shading.</p>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/density_ks/low_ks1.png" width="480px" />
+            <figcaption align="middle">Like above, a low ks makes the cloth fold into tiny ripples.</figcaption>
+            <td align="middle">
+                <img src="images/density_ks/low_ks2.png" width="480px" />
+                <figcaption align="middle">This time they are more evenly dispersed rather than clumped around the center of mass.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/density_ks/low_ks3.png" width="480px" />
+            <figcaption align="middle">The cloth falls into a springy pile.</figcaption>
+            <td align="middle">
+                <img src="images/density_ks/low_ks4.png" width="480px" />
+                <figcaption align="middle">When it lays out flat, it is bubbly like a windy tarp or lava.</figcaption>
+        </tr>
+    </table>
+  </div>
+  <br>
+  <p align="middle">Below I will describe self collisions with ks = 99999 using normal shading.</p>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/density_ks/high_ks1.png" width="480px" />
+            <figcaption align="middle">When there is a high ks, the cloth falls and creates big ripples.</figcaption>
+            <td align="middle">
+                <img src="images/density_ks/high_ks2.png" width="480px" />
+                <figcaption align="middle">The folds seem to be more uniform than the low density case.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/density_ks/high_ks3.png" width="480px" />
+            <figcaption align="middle">The cloth slides into a nice overlapping pile like thin vinyl.</figcaption>
+            <td align="middle">
+                <img src="images/density_ks/high_ks4.png" width="480px" />
+                <figcaption align="middle">The cloth moves smoothly and falls in place with barely any ripples.</figcaption>
+        </tr>
+    </table>
+  </div>
+  <p>
+    High ks and low density are similar. Low ks and high density are similar.
+    The main difference between low ks and high density seems to be that low ks
+    is much more bubbly and "springy" than the cloth with high density. For the
+    low ks case, think of steamy boiling water. For the high density case, think
+    of bubbling stew.
+    The main difference between high ks and low
+    density seems to be that high ks PointMasses are constrained more by
+    adjacent PointMasses than the low density case.
+  </p>
+
+
+
+<h2 align="middle">Part 5: Shaders</h2>
+  <h4>Describe what you did in Part 5. etc...</h4>
+  <p>
+    In Part 5 I was able to make my cloth simulation look pretty
+    in real time by implementing GLSL Shaders! GLSL Shaders run in
+    parallel on the GPU, so they can do lots of computationally intensive
+    work to make simulations look pretty without affecting preformance too
+    much. The mandatory shaders I implemented were Diffuse Shading,
+    Blinn-Phong Shading, Texture Mapping, Bump Mapping,
+    Displacement Mapping, and Environment-mapped Reflections (similar to a mirror).
+    I also did extra credit to make my own shader... A Cell Shader!
+  </p>
+
+  <h4>
+    Explain in your own words what is a shader program
+    and how vertex and fragment shaders work together
+    to create lighting and material effects.
+  </h4>
+  <p>
+    A shader program is a program that runs parallel on the GPU so that
+    real-time renders can look good while still running fast. While the
+    CPU calculates things such as collisions and mesh building that have
+    to be done while knowing what everything else in the scene is doing,
+    a shader program can run without needing to know those interactions.
+    Because of that, we can essentialy pixel sample in parallel super fast
+    and render an impressive scene at a quick speed while keeping a similar
+    framerate. To write shaders in this project, I used GLSL. This parallelization
+    feature allows shaders to do almost the same thing as the illumination functions
+    I implemented in Project3, but with a different workflow.
+    <br><br>
+    To create lighting
+    and material effects, a shader program uses vertex and fragment shaders.
+    Vertex shaders change the geometric properties of vertices retrieved from
+    the program running on the CPU. They can update the positions, normals, etc.
+    of vertexes before sending that info over to fragment shaders. After
+    handling and sending these vertex values, the values are interpolated
+    over the polygon they will appear on.
+    Fragment shaders take these interpolated values sent from the vertex shader
+    and use them to change how the output pixels are colored. To keep things simple,
+    if you want to edit the features in a scene you'd write a vertex shader. If you
+    want to change how the features in that scene are colored, you'd want to write a
+    fragment shader.
+  </p>
+
+  <h4>
+    Explain the Blinn-Phong shading model in your own words.
+    Show a screenshot of your Blinn-Phong shader outputting
+    only the ambient component, a screen shot only outputting
+    the diffuse component, a screen shot only outputting the
+    specular component, and one using the entire Blinn-Phong model.
+  </h4>
+  <p>
+    The Blinn-Phong shading model is a variation of the Phong shading model
+    that is faster for directionally lit scenes. This shading model has
+    components of diffuse shading, ambient shading, and specular shading.
+    I'll give examples of the three below. The combination of these three
+    means that we could make it so our objects look globally illuminated
+    really quickly. The algorithm is as follows: separately compute ambient color,
+    diffuse color, and specular color. Use the Diffuse Shading equation to get
+    diffuse color. For specular color (the part the relects the shiny light), if
+    the dot product between the direction to the light and the vertex normal (both
+    normalized) is positive, then find the halfangle and put the halfangle to
+    a power depending on how much you want the shine of the specular color to span.
+  </p>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/phong/ambient.png" width="480px" />
+            <figcaption align="middle">Here I am only showing the ambient part of Blinn-Phong shading.</figcaption>
+            <td align="middle">
+                <img src="images/phong/diffuse.png" width="480px" />
+                <figcaption align="middle">Here I am only showing the diffuse part of Blinn-Phong shading.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/phong/specular.png" width="480px" />
+            <figcaption align="middle">Here I am only showing the specular part of Blinn-Phong shading.</figcaption>
+            <td align="middle">
+                <img src="images/phong/all.png" width="480px" />
+                <figcaption align="middle">This is Blinn-Phong shading.</figcaption>
+        </tr>
+    </table>
+  </div>
+
+  <h4>
+    Show a screenshot of your texture mapping shader using
+    your own custom texture by modifying the textures in /textures/.
+  </h4>
+  <div align="middle">
+    <img src="images/texture_1.png" width="480px"/>
+            <figcaption align="middle">The texture I will be using.</figcaption>
+  </div>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/texture/1.png" width="480px" />
+            <figcaption align="middle">Front-on of sphere.</figcaption>
+            <td align="middle">
+                <img src="images/texture/2.png" width="480px" />
+                <figcaption align="middle">Side profile of sphere.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/texture/3.png" width="480px" />
+            <figcaption align="middle">Front-on with cloth.</figcaption>
+            <td align="middle">
+                <img src="images/texture/4.png" width="480px" />
+                <figcaption align="middle">Side profile with cloth.</figcaption>
+        </tr>
+    </table>
+  </div>
+
+  <h4>
+    Show a screenshot of bump mapping on the cloth and on the sphere.
+    Show a screenshot of displacement mapping on the sphere. Use the
+    same texture for both renders. You can either provide your own
+    texture or use one of the ones in the textures directory, BUT
+    choose one that's not the default texture_2.png. Compare the
+    two approaches and resulting renders in your own words. Compare
+    how your the two shaders react to the sphere by changing the
+    sphere mesh's coarseness by using -o 16 -a 16 and then -o 128 -a 128.
+  </h4>
+  <div align="middle">
+    <img src="images/texture_2.png" width="480px"/>
+            <figcaption align="middle">The texture I will be using.</figcaption>
+  </div>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/bd/bump_sphere.png" width="480px" />
+            <figcaption align="middle">Bump Shading on sphere.</figcaption>
+            <td align="middle">
+                <img src="images/bd/bump_cloth.png" width="480px" />
+                <figcaption align="middle">Bump Shading on cloth.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/bd/dis_sphere.png" width="480px" />
+            <figcaption align="middle">Displacement Shading on sphere.</figcaption>
+            <td align="middle">
+                <img src="images/bd/dis_cloth.png" width="480px" />
+                <figcaption align="middle">Displacement Shading on cloth.</figcaption>
+        </tr>
+    </table>
+  </div>
+  <p>
+    Here it is very clear that Bump Shading "projects" features on to the surface of the
+    objects to give the illusion that they extrude, while displacement shading actually
+    moves the vertices. This is because in bump shading we only modify normals
+    based on texture features, while in displacement shading we modify normals and
+    vector positions. I chose to use a texture with high red contrast so it's easy to
+    differentiate vectors that have been moved. The sphere clearly shows extruding vertices
+    at areas that are red from the texture. It's harder to tell on the cloth, but it's still there.
+    <br><br>
+    Below we will compare bump and displacement when we change the mesh's coarseness.
+  </p>
+  <div align="center">
+    <table style="width=100%">
+      <tr>
+          <td align="middle">
+          <img src="images/bd/bump16.png" width="480px" />
+          <figcaption align="middle">Bump Shading on sphere with -o 16 -a 16.</figcaption>
+          <td align="middle">
+              <img src="images/bd/dis16.png" width="480px" />
+              <figcaption align="middle">Displacement Shading on sphere -o 16 -a 16.</figcaption>
+      </tr>
+      <tr>
+        <td align="middle">
+        <img src="images/bd/bump_sphere.png" width="480px" />
+        <figcaption align="middle">Bump Shading on sphere with default settings.</figcaption>
+        <td align="middle">
+            <img src="images/bd/dis_sphere.png" width="480px" />
+            <figcaption align="middle">Displacement Shading on sphere with default settings.</figcaption>
+      </tr>
+      <tr>
+        <td align="middle">
+        <img src="images/bd/bump128.png" width="480px" />
+        <figcaption align="middle">Bump Shading on sphere with -o 128 -a 128.</figcaption>
+        <td align="middle">
+            <img src="images/bd/dis128.png" width="480px" />
+            <figcaption align="middle">Displacement Shading on sphere with -o 128 -a 128.</figcaption>
+      </tr>
+    </table>
+  </div>
+  <p>
+    As the coarseness of the mesh increases, there is little to no quality increase
+    on Bump Shading other than the roundness of the sphere. Displacement Shading, however,
+    sees massive quality improvements. The introduction of more vertices means that
+    displacements can be more precise. This is why the sphere goes from looking like a
+    spiky ball with a texture projected onto it at -o 16 -a 16, to a planet with mountains
+    at default settings, to a ball with hairs at -o 128 -a 128. In total, Bump Shading
+    looks about the same on objects with varying coarseness, but Displacement Shading gets
+    far more detailed as coarseness increases.
+  </p>
+
+  <h4>
+    Show a screenshot of your mirror shader on the cloth and on the sphere.
+  </h4>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/mirror/1.png" width="480px" />
+            <figcaption align="middle">Front-on of sphere.</figcaption>
+            <td align="middle">
+                <img src="images/mirror/2.png" width="480px" />
+                <figcaption align="middle">Side profile of sphere.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/mirror/3.png" width="480px" />
+            <figcaption align="middle">Front-on with cloth.</figcaption>
+            <td align="middle">
+                <img src="images/mirror/4.png" width="480px" />
+                <figcaption align="middle">Side profile with cloth.</figcaption>
+        </tr>
+    </table>
+  </div>
+
+  <h4>
+    Explain what you did in your custom shader, if you made one.
+  </h4>
+  <p>For my custom shader, I chose to make a cell shader. The idea behind
+    a cell shader is that it bins similar color values into groups, then chooses
+    one color to represent that entire group of colors. This simulates how
+    colors are often used in cartoons and gives the world a comical feel.
+    To find these bins, I decided to use the dot product between the direction
+    to light and the normal. 
+  </p>
+  <div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            <img src="images/cell/1.png" width="480px" />
+            <figcaption align="middle">Front-on of sphere.</figcaption>
+            <td align="middle">
+                <img src="images/cell/2.png" width="480px" />
+                <figcaption align="middle">Side profile of sphere.</figcaption>
+        </tr>
+        <tr>
+            <td align="middle">
+            <img src="images/cell/4.png" width="480px" />
+            <figcaption align="middle">Front-on with cloth.</figcaption>
+            <td align="middle">
+                <img src="images/cell/3.png" width="480px" />
+                <figcaption align="middle">Side profile with cloth.</figcaption>
+        </tr>
+        <tr>
+          <td align="middle">
+          <img src="images/cell/5.png" width="480px" />
+          <figcaption align="middle">pinned2.</figcaption>
+          <td align="middle">
+              <img src="images/cell/6.png" width="480px" />
+              <figcaption align="middle">pinned4.</figcaption>
+      </tr>
+    </table>
+  </div>
+  <p>
+    Unrealistic!
+  </p>
+
+<h2 align="middle">Part 6: Extra Credit</h2>
+  <h4>
+    If you implemented any additional technical features
+    for the cloth simulation, clearly describe what you
+    did and provide screenshots that illustrate your work.
+    If it is an improvement compared to something already
+    existing on the cloth simulation, compare and contrast
+    them both in words and in images.
+  </h4>
+  <p>
+    I implemented a custom shader to simulate cartoony artsyles
+    in real time! This shader is called a cell shader. Refer to the Part 5
+    section to see it!
+  </p>
+
+
+  <p align="middle">The website for my writeup is https://cal-cs184-student.github.io/sp22-project-webpages-ethangnibus/</p>
 </body>
 </html>
-
-
-
-
